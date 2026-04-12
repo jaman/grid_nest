@@ -1,0 +1,11 @@
+{
+  "name": "grid_nest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-side hook for the GridNest Elixir library",
+  "main": "js/grid_nest.js",
+  "scripts": {
+    "test": "node --test js/**/*.test.js"
+  }
+}
