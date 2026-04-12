@@ -44,7 +44,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       igniter
       |> install_js_hook()
       |> install_css()
-      |> install_install_md()
       |> patch_app_js()
       |> maybe_install_ash_store()
     end
@@ -72,12 +71,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       else
         igniter
       end
-    end
-
-    defp install_install_md(igniter) do
-      Igniter.create_new_file(igniter, "priv/grid_nest/INSTALL.md", install_md(),
-        on_exists: :skip
-      )
     end
 
     defp maybe_install_ash_store(igniter) do
@@ -121,51 +114,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         @impl true
         def default(_page_key), do: []
       end
-      """
-    end
-
-    defp install_md do
-      """
-      # GridNest installation
-
-      `mix grid_nest.install` copied the JS hook into
-      `assets/vendor/grid_nest.js`. Two short manual steps remain:
-
-      ## 1. Register the hook
-
-      In `assets/js/app.js`:
-
-      ```js
-      import { GridNestBoard } from "../vendor/grid_nest.js"
-
-      let liveSocket = new LiveSocket("/live", Socket, {
-        hooks: { GridNestBoard },
-        params: { _csrf_token: csrfToken }
-      })
-      ```
-
-      ## 2. Mount the board
-
-      In any LiveView template:
-
-      ```heex
-      <.live_component
-        module={GridNest.Board}
-        id="dashboard"
-        user_scope={@current_user.id}
-        page_key="home"
-        browser_hash={@browser_hash}
-        server_storage={GridNest.LayoutStore.Ets}
-        client_storage={:local_storage}
-        default_layout={GridNest.Layout.new!([])}
-        new_browser_fallback={:most_recent} />
-      ```
-
-      See `GridNest.Board` for the full list of props.
-
-      If you ran `--with-ash-store`, a scaffolded adapter module now lives in
-      `lib/<app>/grid_nest/layout_store.ex`. Fill in its callbacks with your
-      Ash domain and pass the module as `server_storage`.
       """
     end
   end

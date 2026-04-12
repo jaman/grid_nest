@@ -10,12 +10,6 @@ defmodule Mix.Tasks.GridNest.InstallTest do
       |> assert_creates("assets/vendor/grid_nest.js")
     end
 
-    test "creates a README stub under priv/grid_nest describing next steps" do
-      test_project()
-      |> Igniter.compose_task("grid_nest.install", ["--yes"])
-      |> assert_creates("priv/grid_nest/INSTALL.md")
-    end
-
     test "--with-ash-store scaffolds an adapter module in the host app" do
       test_project(app_name: :my_app)
       |> Igniter.compose_task("grid_nest.install", ["--yes", "--with-ash-store"])
