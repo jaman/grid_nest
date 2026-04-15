@@ -1,7 +1,7 @@
 defmodule GridNest.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.1.1"
   @source_url "https://github.com/jarius/grid_nest"
 
   def project do
@@ -75,7 +75,8 @@ defmodule GridNest.MixProject do
       {:igniter, "~> 0.5", optional: true},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:lazy_html, ">= 0.1.0", only: :test}
+      {:lazy_html, ">= 0.1.0", only: :test},
+      {:bandit, "~> 1.0", only: :dev}
     ]
   end
 end

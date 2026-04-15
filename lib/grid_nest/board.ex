@@ -64,12 +64,19 @@ defmodule GridNest.Board do
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
+    prev_collapse = socket.assigns[:collapse]
+    prev_default = socket.assigns[:default_layout]
     socket = assign(socket, assigns)
 
-    if socket.assigns.bootstrap_source == nil do
-      {:ok, bootstrap(socket)}
-    else
-      {:ok, socket}
+    cond do
+      socket.assigns.bootstrap_source == nil ->
+        {:ok, bootstrap(socket)}
+
+      layout_props_changed?(prev_collapse, prev_default, socket.assigns) ->
+        {:ok, reapply_layout(socket)}
+
+      true ->
+        {:ok, socket}
     end
   end
 
@@ -95,6 +102,33 @@ defmodule GridNest.Board do
       client_storage: socket.assigns.client_storage,
       page_key: socket.assigns.page_key
     })
+  end
+
+  defp layout_props_changed?(prev_collapse, prev_default, assigns) do
+    assigns[:collapse] != prev_collapse or assigns[:default_layout] != prev_default
+  end
+
+  defp reapply_layout(socket) do
+    layout =
+      socket.assigns.layout
+      |> filter_to_visible(socket.assigns.default_layout)
+      |> Mutate.collapse(socket.assigns.collapse)
+
+    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, layout)
+
+    socket
+    |> assign(:layout, layout)
+    |> push_event("grid_nest:layout_saved", %{
+      id: socket.assigns.id,
+      layout: Layout.to_wire(layout)
+    })
+  end
+
+  defp filter_to_visible(layout, nil), do: layout
+
+  defp filter_to_visible(layout, default) when is_list(default) do
+    visible_ids = MapSet.new(default, & &1.id)
+    Enum.filter(layout, &MapSet.member?(visible_ids, &1.id))
   end
 
   @impl Phoenix.LiveComponent

@@ -76,3 +76,12 @@
 .grid-nest-resize-handle:hover {
   opacity: 0.85;
 }
+
+.grid-nest-drop-ghost {
+  border: 2px dashed var(--grid-nest-ghost-border, rgb(100 149 237 / 0.5));
+  background: var(--grid-nest-ghost-bg, rgb(100 149 237 / 0.08));
+  border-radius: var(--grid-nest-tile-radius, 0.5rem);
+  pointer-events: none;
+  z-index: 1;
+  transition: grid-column 120ms ease, grid-row 120ms ease;
+}

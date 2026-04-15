@@ -156,6 +156,20 @@ function canStartDrag(target, tile) {
   return !!handle && tile.contains(handle);
 }
 
+function createGhost(coords, mode) {
+  const ghost = document.createElement("div");
+  ghost.className = "grid-nest-drop-ghost";
+  ghost.style.gridColumn = `${coords.gridX + 1} / span ${coords.gridW}`;
+  ghost.style.gridRow = `${coords.gridY + 1} / span ${coords.gridH}`;
+  return ghost;
+}
+
+function updateGhost(ghost, x, y, w, h) {
+  if (!ghost) return;
+  ghost.style.gridColumn = `${x + 1} / span ${w}`;
+  ghost.style.gridRow = `${y + 1} / span ${h}`;
+}
+
 const GridNestBoard = {
   mounted() {
     this.clientStorage = this.el.dataset.clientStorage || "none";
@@ -232,6 +246,10 @@ const GridNestBoard = {
     this.el.removeEventListener("pointerdown", this.onPointerDown);
     window.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("pointerup", this.onPointerUp);
+    if (this.ghost) {
+      this.ghost.remove();
+      this.ghost = null;
+    }
   },
 
   onPointerDown(event) {
@@ -267,6 +285,8 @@ const GridNestBoard = {
     };
 
     tile.classList.add("grid-nest-tile--dragging");
+    this.ghost = createGhost(coords, mode);
+    this.el.appendChild(this.ghost);
     window.addEventListener("pointermove", this.onPointerMove);
     window.addEventListener("pointerup", this.onPointerUp);
     event.preventDefault();
@@ -276,12 +296,18 @@ const GridNestBoard = {
     if (!this.drag) return;
     const dx = event.clientX - this.drag.origin.x;
     const dy = event.clientY - this.drag.origin.y;
+    const metrics = measureGrid(this.el);
+    const pointer = { x: event.clientX, y: event.clientY };
 
     if (this.drag.mode === "drag") {
       this.drag.tileEl.style.transform = `translate(${dx}px, ${dy}px)`;
+      const { x, y } = snapMove({ origin: this.drag.origin, pointer, metrics });
+      updateGhost(this.ghost, x, y, this.drag.origin.gridW, this.drag.origin.gridH);
     } else {
       this.drag.tileEl.style.width = `${Math.max(16, this.drag.origin.tileWidth + dx)}px`;
       this.drag.tileEl.style.height = `${Math.max(16, this.drag.origin.tileHeight + dy)}px`;
+      const { w, h } = snapResize({ origin: this.drag.origin, pointer, metrics });
+      updateGhost(this.ghost, this.drag.origin.gridX, this.drag.origin.gridY, w, h);
     }
   },
 
@@ -291,6 +317,11 @@ const GridNestBoard = {
     const metrics = measureGrid(this.el);
     const pointer = { x: event.clientX, y: event.clientY };
     const tileEl = this.drag.tileEl;
+
+    if (this.ghost) {
+      this.ghost.remove();
+      this.ghost = null;
+    }
 
     const finalize = () => {
       tileEl.classList.remove("grid-nest-tile--dragging");
