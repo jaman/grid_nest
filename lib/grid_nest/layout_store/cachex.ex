@@ -169,16 +169,8 @@ defmodule GridNest.LayoutStore.Cachex do
   end
 
   defp increment_counter(cache) do
-    case Cachex.get(cache, @counter_key) do
-      {:ok, nil} ->
-        Cachex.put(cache, @counter_key, 1)
-        1
-
-      {:ok, current} when is_integer(current) ->
-        next = current + 1
-        Cachex.put(cache, @counter_key, next)
-        next
-    end
+    {:ok, value} = Cachex.incr(cache, @counter_key, 1, default: 0)
+    value
   end
 
   defp record_key(%Key{user_scope: scope, page_key: page, browser_hash: hash}) do
