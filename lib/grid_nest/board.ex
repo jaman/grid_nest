@@ -25,6 +25,11 @@ defmodule GridNest.Board do
       what happens when a new `browser_hash` is seen for a user that
       already has layouts stored under other hashes. Defaults to
       `:most_recent`.
+    * `:collapse` — `:none`, `:vertical`, `:horizontal`, or `:both`.
+      Controls whether gaps between tiles are automatically closed after
+      layout resolution. `:vertical` pulls tiles upward, `:horizontal`
+      pulls tiles leftward, `:both` does vertical then horizontal.
+      Defaults to `:none` (absolute positioning).
   """
 
   use Phoenix.LiveComponent
@@ -53,6 +58,7 @@ defmodule GridNest.Board do
      |> assign_new(:client_storage, fn -> :local_storage end)
      |> assign_new(:default_layout, fn -> nil end)
      |> assign_new(:new_browser_fallback, fn -> :most_recent end)
+     |> assign_new(:collapse, fn -> :none end)
      |> assign_new(:tile, fn -> [] end)}
   end
 
@@ -78,9 +84,11 @@ defmodule GridNest.Board do
         new_browser_fallback: socket.assigns.new_browser_fallback
       })
 
+    collapsed = Mutate.collapse(result.layout, socket.assigns.collapse)
+
     socket
     |> assign(:key, key)
-    |> assign(:layout, result.layout)
+    |> assign(:layout, collapsed)
     |> assign(:bootstrap_source, result.source)
     |> push_event("grid_nest:request_hydrate", %{
       id: socket.assigns.id,
@@ -100,13 +108,15 @@ defmodule GridNest.Board do
 
     decision = Hydrate.resolve(bootstrap, client_layout)
 
+    collapsed = Mutate.collapse(decision.layout, socket.assigns.collapse)
+
     if decision.persist_to_server? do
-      _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, decision.layout)
+      _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, collapsed)
     end
 
     {:noreply,
      socket
-     |> assign(:layout, decision.layout)
+     |> assign(:layout, collapsed)
      |> assign(:bootstrap_source, :server_exact)}
   end
 
@@ -193,14 +203,15 @@ defmodule GridNest.Board do
   end
 
   defp commit_layout(socket, next_layout) do
-    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, next_layout)
+    collapsed = Mutate.collapse(next_layout, socket.assigns.collapse)
+    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, collapsed)
 
     socket
-    |> assign(:layout, next_layout)
+    |> assign(:layout, collapsed)
     |> assign(:bootstrap_source, :server_exact)
     |> push_event("grid_nest:layout_saved", %{
       id: socket.assigns.id,
-      layout: Layout.to_wire(next_layout)
+      layout: Layout.to_wire(collapsed)
     })
   end
 

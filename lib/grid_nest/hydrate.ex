@@ -82,11 +82,11 @@ defmodule GridNest.Hydrate do
         {id, {movable, resizable}}
       end)
 
-    Enum.map(client_layout, fn %Item{id: id} = item ->
-      case Map.get(flags_by_id, id) do
-        nil -> item
-        {movable, resizable} -> %Item{item | movable: movable, resizable: resizable}
-      end
+    client_layout
+    |> Enum.filter(fn %Item{id: id} -> Map.has_key?(flags_by_id, id) end)
+    |> Enum.map(fn %Item{id: id} = item ->
+      {movable, resizable} = Map.fetch!(flags_by_id, id)
+      %Item{item | movable: movable, resizable: resizable}
     end)
   end
 end

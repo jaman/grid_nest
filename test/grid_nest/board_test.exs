@@ -119,6 +119,42 @@ defmodule GridNest.BoardTest do
     end
   end
 
+  describe "collapse prop" do
+    test "vertical collapse closes vertical gaps on initial render" do
+      spaced_layout =
+        Layout.new!([
+          %{id: "w-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "w-b", x: 0, y: 6, w: 2, h: 2}
+        ])
+
+      {:ok, _lv, html} =
+        mount_harness(%{
+          "default_layout" => spaced_layout,
+          "collapse" => :vertical
+        })
+
+      assert html =~ "grid-row: 1 / span 2"
+      assert html =~ "grid-row: 3 / span 2"
+      refute html =~ "grid-row: 7 / span 2"
+    end
+
+    test "no collapse preserves gaps" do
+      spaced_layout =
+        Layout.new!([
+          %{id: "w-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "w-b", x: 0, y: 6, w: 2, h: 2}
+        ])
+
+      {:ok, _lv, html} =
+        mount_harness(%{
+          "default_layout" => spaced_layout,
+          "collapse" => :none
+        })
+
+      assert html =~ "grid-row: 7 / span 2"
+    end
+  end
+
   describe "handle_event hydrate" do
     test "keeps the server layout when client reports no layout" do
       scope = "u-#{System.unique_integer([:positive])}"

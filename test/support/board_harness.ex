@@ -22,7 +22,8 @@ defmodule GridNest.BoardHarness do
      |> assign(:server_storage, Map.fetch!(session, "server_storage"))
      |> assign(:client_storage, Map.fetch!(session, "client_storage"))
      |> assign(:default_layout, Map.fetch!(session, "default_layout"))
-     |> assign(:new_browser_fallback, Map.fetch!(session, "new_browser_fallback"))}
+     |> assign(:new_browser_fallback, Map.fetch!(session, "new_browser_fallback"))
+     |> assign(:collapse, Map.get(session, "collapse", :none))}
   end
 
   @impl true
@@ -38,6 +39,7 @@ defmodule GridNest.BoardHarness do
       client_storage={@client_storage}
       default_layout={@default_layout}
       new_browser_fallback={@new_browser_fallback}
+      collapse={@collapse}
     />
     """
   end

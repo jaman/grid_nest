@@ -10,7 +10,7 @@ defmodule GridNest.HydrateTest do
   end
 
   defp client_layout do
-    Layout.new!([%{id: "cli", x: 0, y: 0, w: 4, h: 4}])
+    Layout.new!([%{id: "srv", x: 0, y: 0, w: 4, h: 4}])
   end
 
   describe "resolve/2 with no client layout" do
@@ -75,6 +75,29 @@ defmodule GridNest.HydrateTest do
 
       assert %Hydrate.Decision{action: :keep, persist_to_server?: true} =
                Hydrate.resolve(bootstrap, server_layout())
+    end
+
+    test "filters client layout to only items present in bootstrap" do
+      bootstrap =
+        %BootstrapResult{
+          layout:
+            Layout.new!([
+              %{id: "visible", x: 0, y: 0, w: 4, h: 2}
+            ]),
+          source: :server_exact
+        }
+
+      client_with_hidden =
+        Layout.new!([
+          %{id: "visible", x: 0, y: 0, w: 6, h: 3},
+          %{id: "hidden", x: 6, y: 0, w: 2, h: 2}
+        ])
+
+      %Hydrate.Decision{layout: merged} = Hydrate.resolve(bootstrap, client_with_hidden)
+
+      ids = Enum.map(merged, & &1.id)
+      assert "visible" in ids
+      refute "hidden" in ids
     end
 
     test "reapplies bootstrap movable/resizable flags onto client positions by id" do

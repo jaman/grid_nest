@@ -52,12 +52,35 @@ defmodule GridNest.Layout.Mutate do
     end
   end
 
+  @type collapse_mode :: :none | :vertical | :horizontal | :both
+
+  @spec collapse(Layout.t(), collapse_mode()) :: Layout.t()
+  def collapse(layout, :none) when is_list(layout), do: layout
+  def collapse(layout, :vertical) when is_list(layout), do: compact_vertical(layout)
+  def collapse(layout, :horizontal) when is_list(layout), do: compact_horizontal(layout)
+
+  def collapse(layout, :both) when is_list(layout) do
+    layout
+    |> compact_vertical()
+    |> compact_horizontal()
+  end
+
   @spec compact(Layout.t()) :: Layout.t()
-  def compact(layout) when is_list(layout) do
+  def compact(layout) when is_list(layout), do: compact_vertical(layout)
+
+  defp compact_vertical(layout) do
     layout
     |> Enum.sort_by(fn %Item{y: y, x: x} -> {y, x} end)
     |> Enum.reduce([], fn item, placed ->
       placed ++ [pull_up(item, placed)]
+    end)
+  end
+
+  defp compact_horizontal(layout) do
+    layout
+    |> Enum.sort_by(fn %Item{x: x, y: y} -> {x, y} end)
+    |> Enum.reduce([], fn item, placed ->
+      placed ++ [pull_left(item, placed)]
     end)
   end
 
@@ -143,6 +166,18 @@ defmodule GridNest.Layout.Mutate do
   defp pull_up(%Item{} = item, placed) do
     Enum.reduce_while(0..item.y, item, fn candidate_y, _acc ->
       candidate = %Item{item | y: candidate_y}
+
+      if Enum.any?(placed, &Item.collides?(candidate, &1)) do
+        {:cont, item}
+      else
+        {:halt, candidate}
+      end
+    end)
+  end
+
+  defp pull_left(%Item{} = item, placed) do
+    Enum.reduce_while(0..item.x, item, fn candidate_x, _acc ->
+      candidate = %Item{item | x: candidate_x}
 
       if Enum.any?(placed, &Item.collides?(candidate, &1)) do
         {:cont, item}

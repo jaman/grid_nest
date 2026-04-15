@@ -192,6 +192,100 @@ defmodule GridNest.Layout.MutateTest do
     end
   end
 
+  describe "collapse/2" do
+    test ":vertical pulls tiles up into vertical gaps without changing x" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 0, y: 6, w: 2, h: 2},
+          %{id: "c", x: 4, y: 8, w: 2, h: 2}
+        ])
+
+      collapsed = Mutate.collapse(layout, :vertical)
+
+      a = Enum.find(collapsed, &(&1.id == "a"))
+      b = Enum.find(collapsed, &(&1.id == "b"))
+      c = Enum.find(collapsed, &(&1.id == "c"))
+
+      assert a.y == 0
+      assert b.y == 2
+      assert c.y == 0
+      assert c.x == 4
+    end
+
+    test ":horizontal pulls tiles left into horizontal gaps without changing y" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 6, y: 0, w: 2, h: 2},
+          %{id: "c", x: 0, y: 4, w: 2, h: 2}
+        ])
+
+      collapsed = Mutate.collapse(layout, :horizontal)
+
+      a = Enum.find(collapsed, &(&1.id == "a"))
+      b = Enum.find(collapsed, &(&1.id == "b"))
+      c = Enum.find(collapsed, &(&1.id == "c"))
+
+      assert a.x == 0
+      assert b.x == 2
+      assert b.y == 0
+      assert c.x == 0
+      assert c.y == 4
+    end
+
+    test ":both collapses vertically then horizontally" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 6, y: 6, w: 2, h: 2}
+        ])
+
+      collapsed = Mutate.collapse(layout, :both)
+
+      b = Enum.find(collapsed, &(&1.id == "b"))
+      assert b.y == 0
+      assert b.x == 2
+    end
+
+    test ":none returns the layout unchanged" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 6, y: 6, w: 2, h: 2}
+        ])
+
+      assert Mutate.collapse(layout, :none) == layout
+    end
+
+    test "collapse is idempotent" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 0, y: 6, w: 2, h: 2},
+          %{id: "c", x: 4, y: 8, w: 2, h: 2}
+        ])
+
+      once = Mutate.collapse(layout, :vertical)
+      twice = Mutate.collapse(once, :vertical)
+      assert Enum.sort_by(once, & &1.id) == Enum.sort_by(twice, & &1.id)
+    end
+
+    test "collapse never produces overlaps" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 4, h: 2},
+          %{id: "b", x: 2, y: 6, w: 4, h: 2},
+          %{id: "c", x: 6, y: 8, w: 2, h: 2}
+        ])
+
+      for mode <- [:vertical, :horizontal, :both] do
+        collapsed = Mutate.collapse(layout, mode)
+        assert {:ok, _} = Layout.new(collapsed), "overlap detected with mode #{mode}"
+      end
+    end
+  end
+
   describe "move/3 + compact pipeline" do
     test "a move followed by compact never leaves overlaps" do
       layout =
