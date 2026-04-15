@@ -24,11 +24,11 @@ defmodule GridNest.BoardTest do
   end
 
   defp stored_layout do
-    Layout.new!([%{id: "w-srv", x: 0, y: 0, w: 4, h: 3}])
+    Layout.new!([%{id: "w-a", x: 0, y: 0, w: 4, h: 3}])
   end
 
   defp client_layout do
-    Layout.new!([%{id: "w-cli", x: 1, y: 1, w: 6, h: 4}])
+    Layout.new!([%{id: "w-a", x: 1, y: 1, w: 6, h: 4}])
   end
 
   defp mount_harness(session_overrides) do
@@ -75,8 +75,9 @@ defmodule GridNest.BoardTest do
       {:ok, _lv, html} =
         mount_harness(%{"user_scope" => scope, "server_storage" => Ets})
 
-      assert html =~ ~s(data-id="w-srv")
-      refute html =~ ~s(data-id="w-a")
+      assert html =~ ~s(data-id="w-a")
+      assert html =~ "grid-column: 1 / span 4"
+      refute html =~ ~s(data-id="w-b")
     end
 
     test "uses cross-browser fallback with :most_recent strategy" do
@@ -91,7 +92,8 @@ defmodule GridNest.BoardTest do
           "new_browser_fallback" => :most_recent
         })
 
-      assert html =~ ~s(data-id="w-srv")
+      assert html =~ "grid-column: 1 / span 4"
+      refute html =~ ~s(data-id="w-b")
     end
 
     test "ignores cross-browser layouts with :default strategy" do
@@ -107,7 +109,7 @@ defmodule GridNest.BoardTest do
         })
 
       assert html =~ ~s(data-id="w-a")
-      refute html =~ ~s(data-id="w-srv")
+      assert html =~ ~s(data-id="w-b")
     end
 
     test "pushes a request_hydrate event to the hook on mount" do
@@ -130,7 +132,8 @@ defmodule GridNest.BoardTest do
         |> element("#test-board")
         |> render_hook("grid_nest:hydrate", %{"layout" => nil})
 
-      assert html =~ ~s(data-id="w-srv")
+      assert html =~ ~s(data-id="w-a")
+      assert html =~ "grid-column: 1 / span 4"
     end
 
     test "swaps to the client layout when the client reports one" do
@@ -141,8 +144,8 @@ defmodule GridNest.BoardTest do
         |> element("#test-board")
         |> render_hook("grid_nest:hydrate", %{"layout" => Layout.to_wire(client_layout())})
 
-      assert html =~ ~s(data-id="w-cli")
-      refute html =~ ~s(data-id="w-a")
+      assert html =~ ~s(data-id="w-a")
+      assert html =~ "grid-column: 2 / span 6"
     end
 
     test "persists the client layout to the server store on swap" do

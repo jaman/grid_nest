@@ -66,10 +66,13 @@ defmodule GridNest.Bootstrap do
             "(expected :most_recent or :default)"
   end
 
-  defp try_exact(%{adapter: adapter, key: key}) do
+  defp try_exact(%{adapter: adapter, key: key, default_layout: default}) do
     case LayoutStore.load(adapter, key) do
-      {:ok, layout} -> %Result{layout: layout, source: :server_exact}
-      _miss_or_error -> nil
+      {:ok, layout} ->
+        %Result{layout: filter_to_visible(layout, default), source: :server_exact}
+
+      _miss_or_error ->
+        nil
     end
   end
 
@@ -80,14 +83,25 @@ defmodule GridNest.Bootstrap do
   defp maybe_try_any_browser(nil, %{
          new_browser_fallback: :most_recent,
          adapter: adapter,
-         key: key
+         key: key,
+         default_layout: default
        }) do
     wildcard = Key.any_browser(key.user_scope, key.page_key)
 
     case LayoutStore.load_any_browser(adapter, wildcard) do
-      {:ok, layout} -> %Result{layout: layout, source: :server_any_browser}
-      _miss_or_error -> nil
+      {:ok, layout} ->
+        %Result{layout: filter_to_visible(layout, default), source: :server_any_browser}
+
+      _miss_or_error ->
+        nil
     end
+  end
+
+  defp filter_to_visible(layout, nil), do: layout
+
+  defp filter_to_visible(layout, default) when is_list(default) do
+    visible_ids = MapSet.new(default, & &1.id)
+    Enum.filter(layout, &MapSet.member?(visible_ids, &1.id))
   end
 
   defp maybe_fall_back(%Result{} = hit, _opts), do: hit

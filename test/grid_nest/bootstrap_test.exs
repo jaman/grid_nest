@@ -58,7 +58,7 @@ defmodule GridNest.BootstrapTest do
                Bootstrap.resolve(%{
                  adapter: Ets,
                  key: key,
-                 default_layout: default_layout(),
+                 default_layout: nil,
                  new_browser_fallback: :most_recent
                })
     end
@@ -75,7 +75,7 @@ defmodule GridNest.BootstrapTest do
                Bootstrap.resolve(%{
                  adapter: Ets,
                  key: new_key,
-                 default_layout: default_layout(),
+                 default_layout: nil,
                  new_browser_fallback: :most_recent
                })
 
@@ -113,6 +113,89 @@ defmodule GridNest.BootstrapTest do
                })
 
       assert layout == default_layout()
+    end
+  end
+
+  describe "resolve/1 filters stored layout to match default_layout IDs" do
+    test "exact hit excludes panels not present in default_layout" do
+      key = Key.new("u-filter", "home", "desk")
+
+      stored =
+        Layout.new!([
+          %{id: "panel-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "panel-b", x: 2, y: 0, w: 2, h: 2},
+          %{id: "panel-c", x: 4, y: 0, w: 2, h: 2}
+        ])
+
+      :ok = Ets.save(key, stored)
+
+      visible_default =
+        Layout.new!([
+          %{id: "panel-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "panel-c", x: 4, y: 0, w: 2, h: 2}
+        ])
+
+      assert %Bootstrap.Result{source: :server_exact, layout: layout} =
+               Bootstrap.resolve(%{
+                 adapter: Ets,
+                 key: key,
+                 default_layout: visible_default,
+                 new_browser_fallback: :default
+               })
+
+      ids = Enum.map(layout, & &1.id)
+      assert "panel-a" in ids
+      assert "panel-c" in ids
+      refute "panel-b" in ids
+    end
+
+    test "any_browser hit excludes panels not present in default_layout" do
+      scope = "u-filter-any"
+
+      stored =
+        Layout.new!([
+          %{id: "panel-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "panel-b", x: 2, y: 0, w: 2, h: 2}
+        ])
+
+      :ok = Ets.save(Key.new(scope, "home", "old-browser"), stored)
+
+      visible_default =
+        Layout.new!([%{id: "panel-a", x: 0, y: 0, w: 2, h: 2}])
+
+      assert %Bootstrap.Result{source: :server_any_browser, layout: layout} =
+               Bootstrap.resolve(%{
+                 adapter: Ets,
+                 key: Key.new(scope, "home", "new-browser"),
+                 default_layout: visible_default,
+                 new_browser_fallback: :most_recent
+               })
+
+      ids = Enum.map(layout, & &1.id)
+      assert "panel-a" in ids
+      refute "panel-b" in ids
+    end
+
+    test "does not filter when default_layout is nil" do
+      key = Key.new("u-filter-nil", "home", "desk")
+
+      stored =
+        Layout.new!([
+          %{id: "panel-a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "panel-b", x: 2, y: 0, w: 2, h: 2}
+        ])
+
+      :ok = Ets.save(key, stored)
+
+      assert %Bootstrap.Result{source: :server_exact, layout: layout} =
+               Bootstrap.resolve(%{
+                 adapter: Ets,
+                 key: key,
+                 default_layout: nil,
+                 new_browser_fallback: :default
+               })
+
+      assert length(layout) == 2
     end
   end
 
