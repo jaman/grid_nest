@@ -26,11 +26,6 @@ defmodule GridNest.HydrateTest do
       assert layout == server_layout()
     end
 
-    test "does not schedule a server re-seed for a server-sourced layout" do
-      bootstrap = %BootstrapResult{layout: server_layout(), source: :server_exact}
-      assert %Hydrate.Decision{persist_to_server?: false} = Hydrate.resolve(bootstrap, nil)
-    end
-
     test "schedules a server re-seed when bootstrap fell through to :default" do
       bootstrap = %BootstrapResult{layout: server_layout(), source: :default}
 
@@ -50,9 +45,30 @@ defmodule GridNest.HydrateTest do
     end
   end
 
-  describe "resolve/2 with a client layout" do
-    test "swaps to the client layout and re-seeds the server" do
+  describe "resolve/2 server_exact ignores client" do
+    test "keeps server layout even when client has a different layout" do
       bootstrap = %BootstrapResult{layout: server_layout(), source: :server_exact}
+
+      assert %Hydrate.Decision{
+               layout: layout,
+               action: :keep,
+               persist_to_server?: false
+             } = Hydrate.resolve(bootstrap, client_layout())
+
+      assert layout == server_layout()
+    end
+
+    test "keeps server layout when client matches" do
+      bootstrap = %BootstrapResult{layout: server_layout(), source: :server_exact}
+
+      assert %Hydrate.Decision{action: :keep, persist_to_server?: false} =
+               Hydrate.resolve(bootstrap, server_layout())
+    end
+  end
+
+  describe "resolve/2 client wins on server miss" do
+    test "swaps to client layout when bootstrap source is :default" do
+      bootstrap = %BootstrapResult{layout: server_layout(), source: :default}
 
       assert %Hydrate.Decision{
                layout: layout,
@@ -60,20 +76,24 @@ defmodule GridNest.HydrateTest do
                persist_to_server?: true
              } = Hydrate.resolve(bootstrap, client_layout())
 
-      assert layout == client_layout()
+      [item] = layout
+      assert item.w == 4
+      assert item.h == 4
     end
 
-    test "keeps (does not swap) when the client layout equals the server layout" do
-      bootstrap = %BootstrapResult{layout: server_layout(), source: :server_exact}
+    test "swaps to client layout when bootstrap source is :server_any_browser" do
+      bootstrap = %BootstrapResult{layout: server_layout(), source: :server_any_browser}
 
-      assert %Hydrate.Decision{action: :keep, persist_to_server?: false} =
-               Hydrate.resolve(bootstrap, server_layout())
+      assert %Hydrate.Decision{
+               action: :swap,
+               persist_to_server?: true
+             } = Hydrate.resolve(bootstrap, client_layout())
     end
 
     test "still re-seeds server if client matches a :default bootstrap" do
       bootstrap = %BootstrapResult{layout: server_layout(), source: :default}
 
-      assert %Hydrate.Decision{action: :keep, persist_to_server?: true} =
+      assert %Hydrate.Decision{action: :swap, persist_to_server?: true} =
                Hydrate.resolve(bootstrap, server_layout())
     end
 
@@ -84,7 +104,7 @@ defmodule GridNest.HydrateTest do
             Layout.new!([
               %{id: "visible", x: 0, y: 0, w: 4, h: 2}
             ]),
-          source: :server_exact
+          source: :default
         }
 
       client_with_hidden =
@@ -100,7 +120,7 @@ defmodule GridNest.HydrateTest do
       refute "hidden" in ids
     end
 
-    test "reapplies bootstrap movable/resizable flags onto client positions by id" do
+    test "reapplies bootstrap movable/resizable flags onto client positions" do
       locked_server =
         Layout.new!([
           %{id: "header", x: 0, y: 0, w: 12, h: 2, movable: false, resizable: false},
@@ -113,7 +133,7 @@ defmodule GridNest.HydrateTest do
           %{id: "body", x: 6, y: 2, w: 6, h: 4}
         ])
 
-      bootstrap = %BootstrapResult{layout: locked_server, source: :server_exact}
+      bootstrap = %BootstrapResult{layout: locked_server, source: :default}
 
       %Hydrate.Decision{layout: merged} = Hydrate.resolve(bootstrap, client_positions_only)
 

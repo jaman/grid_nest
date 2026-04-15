@@ -4,20 +4,22 @@ defmodule GridNest.Hydrate do
   `GridNest.Board`'s initial render and the JS hook's report of any
   client-side stored layout.
 
-  Precedence rule (per project design):
+  Precedence rule:
 
-    * If the hook reports a client layout, it wins — always.
-    * If the hook reports nothing, we keep the server-resolved layout.
+    * Server-exact hit — the server layout is authoritative. The client
+      layout is ignored (it's a stale mirror at best).
+    * Server miss (`:default` or `:server_any_browser`) — the client
+      layout wins if present, and gets persisted back to the server so
+      future loads hit the exact path.
+    * No client layout — keep whatever bootstrap resolved.
 
-  Orthogonally, the decision also tells the Board whether the resolved
-  layout needs to be written back to the server store. That happens
-  when either:
+  The decision also tells the Board whether the resolved layout needs
+  to be written back to the server store. That happens when:
 
-    * the client layout replaced a server record (`:swap`), or
+    * the client layout replaced a server miss (`:swap`), or
     * the server bootstrap fell through to `:default` or used the
-      cross-browser `:server_any_browser` fallback — in both cases no
-      record exists under the exact key yet, so we re-seed it with
-      whatever we decided to render.
+      cross-browser `:server_any_browser` fallback — re-seed so the
+      exact key exists for next time.
   """
 
   alias GridNest.Bootstrap.Result, as: BootstrapResult
@@ -48,6 +50,15 @@ defmodule GridNest.Hydrate do
   end
 
   @spec resolve(BootstrapResult.t(), Layout.t() | nil) :: Decision.t()
+
+  def resolve(%BootstrapResult{source: :server_exact} = bootstrap, _client_layout) do
+    %Decision{
+      layout: bootstrap.layout,
+      action: :keep,
+      persist_to_server?: false
+    }
+  end
+
   def resolve(%BootstrapResult{} = bootstrap, nil) do
     %Decision{
       layout: bootstrap.layout,
@@ -56,23 +67,15 @@ defmodule GridNest.Hydrate do
     }
   end
 
-  def resolve(%BootstrapResult{layout: same} = bootstrap, same) do
+  def resolve(%BootstrapResult{layout: bootstrap_layout}, client_layout)
+      when is_list(client_layout) do
     %Decision{
-      layout: same,
-      action: :keep,
-      persist_to_server?: needs_reseed?(bootstrap.source)
-    }
-  end
-
-  def resolve(%BootstrapResult{layout: bootstrap}, client_layout) when is_list(client_layout) do
-    %Decision{
-      layout: reapply_flags(client_layout, bootstrap),
+      layout: reapply_flags(client_layout, bootstrap_layout),
       action: :swap,
       persist_to_server?: true
     }
   end
 
-  defp needs_reseed?(:server_exact), do: false
   defp needs_reseed?(:server_any_browser), do: true
   defp needs_reseed?(:default), do: true
 
