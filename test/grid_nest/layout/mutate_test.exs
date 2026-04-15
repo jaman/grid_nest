@@ -192,6 +192,48 @@ defmodule GridNest.Layout.MutateTest do
     end
   end
 
+  describe "resolve_overlaps/1" do
+    test "pushes overlapping items down" do
+      overlapping = [
+        %Item{id: "a", x: 0, y: 0, w: 4, h: 2},
+        %Item{id: "b", x: 0, y: 0, w: 4, h: 2}
+      ]
+
+      resolved = Mutate.resolve_overlaps(overlapping)
+      a = Enum.find(resolved, &(&1.id == "a"))
+      b = Enum.find(resolved, &(&1.id == "b"))
+
+      assert a.y == 0
+      assert b.y >= 2
+      assert {:ok, _} = Layout.new(resolved)
+    end
+
+    test "leaves non-overlapping layout unchanged" do
+      layout =
+        layout([
+          %{id: "a", x: 0, y: 0, w: 2, h: 2},
+          %{id: "b", x: 4, y: 0, w: 2, h: 2}
+        ])
+
+      assert Mutate.resolve_overlaps(layout) == layout
+    end
+
+    test "cascades when pushing creates new overlaps" do
+      overlapping = [
+        %Item{id: "a", x: 0, y: 0, w: 4, h: 2},
+        %Item{id: "b", x: 0, y: 0, w: 4, h: 2},
+        %Item{id: "c", x: 0, y: 2, w: 4, h: 2}
+      ]
+
+      resolved = Mutate.resolve_overlaps(overlapping)
+      assert {:ok, _} = Layout.new(resolved)
+
+      b = Enum.find(resolved, &(&1.id == "b"))
+      c = Enum.find(resolved, &(&1.id == "c"))
+      assert c.y >= b.y + b.h
+    end
+  end
+
   describe "collapse/2" do
     test ":vertical pulls tiles up into vertical gaps without changing x" do
       layout =

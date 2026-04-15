@@ -65,6 +65,35 @@ defmodule GridNest.Layout.Mutate do
     |> compact_horizontal()
   end
 
+  @spec resolve_overlaps(Layout.t()) :: Layout.t()
+  def resolve_overlaps(layout) when is_list(layout) do
+    layout
+    |> Enum.sort_by(fn %Item{y: y, x: x} -> {y, x} end)
+    |> Enum.reduce([], fn item, placed ->
+      case find_overlap(item, placed) do
+        nil ->
+          placed ++ [item]
+
+        %Item{} = blocker ->
+          pushed = %Item{item | y: blocker.y + blocker.h}
+          resolve_placed(placed, pushed)
+      end
+    end)
+  end
+
+  defp find_overlap(%Item{} = item, placed) do
+    Enum.find(placed, &Item.collides?(item, &1))
+  end
+
+  defp resolve_placed(placed, %Item{} = item) do
+    case find_overlap(item, placed) do
+      nil -> placed ++ [item]
+      %Item{} = blocker ->
+        pushed = %Item{item | y: blocker.y + blocker.h}
+        resolve_placed(placed, pushed)
+    end
+  end
+
   @spec compact(Layout.t()) :: Layout.t()
   def compact(layout) when is_list(layout), do: compact_vertical(layout)
 

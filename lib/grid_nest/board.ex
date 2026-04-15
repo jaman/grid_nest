@@ -121,6 +121,7 @@ defmodule GridNest.Board do
     layout =
       socket.assigns.stored_layout
       |> filter_to_visible(socket.assigns.default_layout)
+      |> Mutate.resolve_overlaps()
       |> Mutate.collapse(socket.assigns.collapse)
 
     assign(socket, :layout, layout)
@@ -159,8 +160,8 @@ defmodule GridNest.Board do
       when is_binary(id) do
     coord = %{x: coerce_int(x), y: coerce_int(y)}
 
-    case Mutate.move(socket.assigns.stored_layout, id, coord) do
-      {:ok, next_layout} -> {:noreply, commit_layout(socket, next_layout)}
+    case Mutate.move(socket.assigns.layout, id, coord) do
+      {:ok, next_visible} -> {:noreply, merge_and_commit(socket, next_visible)}
       {:error, _reason} -> {:noreply, socket}
     end
   end
@@ -169,8 +170,8 @@ defmodule GridNest.Board do
       when is_binary(id) do
     size = %{w: coerce_int(w), h: coerce_int(h)}
 
-    case Mutate.resize(socket.assigns.stored_layout, id, size) do
-      {:ok, next_layout} -> {:noreply, commit_layout(socket, next_layout)}
+    case Mutate.resize(socket.assigns.layout, id, size) do
+      {:ok, next_visible} -> {:noreply, merge_and_commit(socket, next_visible)}
       {:error, _reason} -> {:noreply, socket}
     end
   end
@@ -235,6 +236,17 @@ defmodule GridNest.Board do
       {:ok, layout} -> layout
       {:error, _} -> nil
     end
+  end
+
+  defp merge_and_commit(socket, next_visible) do
+    visible_by_id = Map.new(next_visible, &{&1.id, &1})
+
+    next_stored =
+      Enum.map(socket.assigns.stored_layout, fn item ->
+        Map.get(visible_by_id, item.id, item)
+      end)
+
+    commit_layout(socket, next_stored)
   end
 
   defp commit_layout(socket, next_stored) do
