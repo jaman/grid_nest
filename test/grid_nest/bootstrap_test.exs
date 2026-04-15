@@ -116,8 +116,8 @@ defmodule GridNest.BootstrapTest do
     end
   end
 
-  describe "resolve/1 filters stored layout to match default_layout IDs" do
-    test "exact hit excludes panels not present in default_layout" do
+  describe "resolve/1 returns full stored layout regardless of default_layout" do
+    test "exact hit returns all stored panels even when default_layout is a subset" do
       key = Key.new("u-filter", "home", "desk")
 
       stored =
@@ -145,11 +145,11 @@ defmodule GridNest.BootstrapTest do
 
       ids = Enum.map(layout, & &1.id)
       assert "panel-a" in ids
+      assert "panel-b" in ids
       assert "panel-c" in ids
-      refute "panel-b" in ids
     end
 
-    test "any_browser hit excludes panels not present in default_layout" do
+    test "any_browser hit returns all stored panels" do
       scope = "u-filter-any"
 
       stored =
@@ -173,10 +173,10 @@ defmodule GridNest.BootstrapTest do
 
       ids = Enum.map(layout, & &1.id)
       assert "panel-a" in ids
-      refute "panel-b" in ids
+      assert "panel-b" in ids
     end
 
-    test "does not filter when default_layout is nil" do
+    test "returns full layout when default_layout is nil" do
       key = Key.new("u-filter-nil", "home", "desk")
 
       stored =

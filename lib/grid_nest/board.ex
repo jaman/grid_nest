@@ -53,6 +53,7 @@ defmodule GridNest.Board do
     {:ok,
      socket
      |> assign(:bootstrap_source, nil)
+     |> assign(:stored_layout, [])
      |> assign(:layout, [])
      |> assign_new(:server_storage, fn -> GridNest.LayoutStore.Noop end)
      |> assign_new(:client_storage, fn -> :local_storage end)
@@ -91,12 +92,11 @@ defmodule GridNest.Board do
         new_browser_fallback: socket.assigns.new_browser_fallback
       })
 
-    collapsed = Mutate.collapse(result.layout, socket.assigns.collapse)
-
     socket
     |> assign(:key, key)
-    |> assign(:layout, collapsed)
+    |> assign(:stored_layout, result.layout)
     |> assign(:bootstrap_source, result.source)
+    |> derive_layout()
     |> push_event("grid_nest:request_hydrate", %{
       id: socket.assigns.id,
       client_storage: socket.assigns.client_storage,
@@ -109,19 +109,21 @@ defmodule GridNest.Board do
   end
 
   defp reapply_layout(socket) do
+    socket = derive_layout(socket)
+
+    push_event(socket, "grid_nest:layout_saved", %{
+      id: socket.assigns.id,
+      layout: Layout.to_wire(socket.assigns.layout)
+    })
+  end
+
+  defp derive_layout(socket) do
     layout =
-      socket.assigns.layout
+      socket.assigns.stored_layout
       |> filter_to_visible(socket.assigns.default_layout)
       |> Mutate.collapse(socket.assigns.collapse)
 
-    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, layout)
-
-    socket
-    |> assign(:layout, layout)
-    |> push_event("grid_nest:layout_saved", %{
-      id: socket.assigns.id,
-      layout: Layout.to_wire(layout)
-    })
+    assign(socket, :layout, layout)
   end
 
   defp filter_to_visible(layout, nil), do: layout
@@ -136,29 +138,28 @@ defmodule GridNest.Board do
     client_layout = decode_client_layout(raw)
 
     bootstrap = %Bootstrap.Result{
-      layout: socket.assigns.layout,
+      layout: socket.assigns.stored_layout,
       source: socket.assigns.bootstrap_source
     }
 
     decision = Hydrate.resolve(bootstrap, client_layout)
 
-    collapsed = Mutate.collapse(decision.layout, socket.assigns.collapse)
-
     if decision.persist_to_server? do
-      _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, collapsed)
+      _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, decision.layout)
     end
 
     {:noreply,
      socket
-     |> assign(:layout, collapsed)
-     |> assign(:bootstrap_source, :server_exact)}
+     |> assign(:stored_layout, decision.layout)
+     |> assign(:bootstrap_source, :server_exact)
+     |> derive_layout()}
   end
 
   def handle_event("grid_nest:move", %{"id" => id, "x" => x, "y" => y}, socket)
       when is_binary(id) do
     coord = %{x: coerce_int(x), y: coerce_int(y)}
 
-    case Mutate.move(socket.assigns.layout, id, coord) do
+    case Mutate.move(socket.assigns.stored_layout, id, coord) do
       {:ok, next_layout} -> {:noreply, commit_layout(socket, next_layout)}
       {:error, _reason} -> {:noreply, socket}
     end
@@ -168,7 +169,7 @@ defmodule GridNest.Board do
       when is_binary(id) do
     size = %{w: coerce_int(w), h: coerce_int(h)}
 
-    case Mutate.resize(socket.assigns.layout, id, size) do
+    case Mutate.resize(socket.assigns.stored_layout, id, size) do
       {:ok, next_layout} -> {:noreply, commit_layout(socket, next_layout)}
       {:error, _reason} -> {:noreply, socket}
     end
@@ -236,16 +237,17 @@ defmodule GridNest.Board do
     end
   end
 
-  defp commit_layout(socket, next_layout) do
-    collapsed = Mutate.collapse(next_layout, socket.assigns.collapse)
-    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, collapsed)
+  defp commit_layout(socket, next_stored) do
+    _ = LayoutStore.save(socket.assigns.server_storage, socket.assigns.key, next_stored)
 
-    socket
-    |> assign(:layout, collapsed)
+    socket = socket
+    |> assign(:stored_layout, next_stored)
     |> assign(:bootstrap_source, :server_exact)
-    |> push_event("grid_nest:layout_saved", %{
+    |> derive_layout()
+
+    push_event(socket, "grid_nest:layout_saved", %{
       id: socket.assigns.id,
-      layout: Layout.to_wire(collapsed)
+      layout: Layout.to_wire(socket.assigns.layout)
     })
   end
 
